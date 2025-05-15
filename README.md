@@ -21,7 +21,9 @@ from "language";
 
 select "title" as "Nombre Película"
 from film f
-where original_language_id is not null;
+inner join language l ON f.language_id = l.language_id
+where f.original_language_id is not null
+  and f.language_id = f.original_language_id;
 
 --5. Ordena las películas por duración de forma ascendente.
 select "title" as "Nombre Películas",
@@ -32,7 +34,7 @@ order by "length" ASC;
 --6.  Encuentra el nombre y apellido de los actores que tengan ‘Allenʼ en su apellido.
 select "first_name",  "last_name"
 from "actor"
-where "last_name" = 'ALLEN';
+where "last_name" like '%ALLEN%';
 
 --7. Encuentra la cantidad total de películas en cada clasificación de la tabla “filmˮ 
 --y muestra la clasificación junto con el recuento.
@@ -207,24 +209,29 @@ where p."amount" >(
 	from "payment" p);
 
 --28.Muestra el id de los actores que hayan participado en más de 40 películas.
-select count(f."film_id") as "Películas",
-		concat (a."first_name", ' ',a."last_name") as "Actor"
+select fa."actor_id" as "ID Actores",
+	count(f."film_id") as "Películas",
+	concat (a."first_name", ' ',a."last_name") as "Actor"
 from film f
 inner join "film_actor" fa
 on fa. "film_id" = f. "film_id"
 inner join "actor"  a
 on fa. "actor_id" = a."actor_id"
-group by a."first_name", a."last_name"
+group by fa."actor_id", a."first_name", a."last_name"
 having count(f."film_id") > 40;
 
 --29.Obtener todas las películas y, si están disponibles en el inventario, mostrar la cantidad disponible.
 select f."title" as "Película",
 		count(i. "inventory_id") as "Inventario Disponible"
 from "film" f
-left join "inventory" i
-on i."film_id" =f."film_id"
+inner join inventory i 
+on f."film_id" = i."film_id"
+left join rental r 
+on i."inventory_id" = r."inventory_id"
+  and r."return_date" is null
+where r."rental_id" is null
 group by f."title"
-order by count(i. "inventory_id")desc;
+order by "Inventario Disponible" desc;
 
 --30. Obtener los actores y el número de películas en las que ha actuado.
 select concat (a."first_name", ' ',a."last_name") as "Actor",
@@ -259,10 +266,13 @@ order by "Actor";
 
 --33. Obtener todas las películas que tenemos y todos los registros de alquiler.
 select f."title" as "Peliculas",
-		r."rental_id" as "Alquiler",
+		r."rental_id" as "ID Alquiler",
 		r."rental_date" as "Fecha Alquiler"
 from "film" f
-cross join rental r 
+left join inventory i 
+on f."film_id" = i."film_id"
+left join rental r 
+on i."inventory_id" = r."inventory_id"
 order by f."title";
 
 --34. Encuentra los 5 clientes que más dinero se hayan gastado con nosotros.
@@ -372,7 +382,7 @@ select concat(a."first_name", ' ', a."last_name") as "Actor",
 from "actor"a
 left join film_actor fa 
 on a.actor_id = fa.actor_id
-group by a."actor_id"
+group by a."actor_id", a."first_name", a."last_name"
 order by "Peliculas Realizadas" asc;
 
 --48. Crea una vista llamada “actor_num_peliculasˮ que 
@@ -459,7 +469,7 @@ on fa."film_id" = fc."film_id"
 inner join category c 
 on fc."category_id" = c."category_id"
 where c."name" = 'Sci-Fi'
-group by a."actor_id", c."name"
+group by a."actor_id", c."name", a."first_name", a."last_name"
 order by a."last_name" ASC;
 
 --55.Encuentra el nombre y apellido de los actores que han actuado en películas que se alquilaron 
@@ -504,10 +514,13 @@ where a."actor_id" not in (
 	where c."name" = 'Music');
 
 --57.Encuentra el título de todas las películas que fueron alquiladas por más de 8 días.
-select "title" as "Película",
-		"rental_duration" as "Tiempo Alquiler"
-from "film"
-where "rental_duration" > 8;
+select f."title" as "Película",
+  date_part('day', r."return_date" - r."rental_date") as "Dias Alquilado"
+from film f
+inner join inventory i on f."film_id" = i."film_id"
+inner join rental r on i."inventory_id" = r."inventory_id"
+where r."return_date" - r."rental_date" > interval '8 days'
+order by f."title";
 
 --58. Encuentra el título de todas las películas que son de la misma categoría que ‘Animationʼ.
 select f. "title" as "Película",
@@ -544,7 +557,7 @@ inner join "inventory" i
 on r."inventory_id"  = i. "inventory_id"
 inner join "film" f
 on i."film_id" = f."film_id"
-group by c."customer_id"
+group by c."customer_id", c."first_name", c."last_name"
 having count(distinct f."film_id")>= 7
 order by c."last_name";
 
